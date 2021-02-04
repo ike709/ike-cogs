@@ -1,6 +1,7 @@
 
 The MIT License (MIT)
 
+Copyright (c) 2018-2021 Crossedfall
 Copyright (c) 2021 ike709
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

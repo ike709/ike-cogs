@@ -1,0 +1,16 @@
+{
+    "author": ["ike709 (ike709#8770)"],
+    "install_msg": "WIP",
+    "name": "SS13 TGS4 Support",
+    "short": "Allows you to control TGS4 via its API.",
+    "requirements": [],
+    "description": "Allows you to control TGS4 via its API.",
+    "permissions" : [],
+    "tags": [
+        "Space Station 13",
+        "Game",
+        "Administration",
+        "Utility",
+        "SS13"
+    ]
+}
