@@ -1,6 +1,5 @@
 #Standard Imports
 import asyncio
-import aiomysql
 import socket
 import ipaddress
 import re
@@ -37,12 +36,11 @@ class Tgs4(BaseCog):
 
         default_guild = {
             "tgs_host": "127.0.0.1",
-            "tgs_port": 8080
+            "tgs_port": 8080,
             "tgs_authenticated": False,
-            "tgs_api": "Tgstation.Server.Api"
-            "tgs_api_version": "8.2.0"
+            "tgs_api": "Tgstation.Server.Api",
+            "tgs_api_version": "8.2.0",
             "tgs_user_agent": "tgstation-server-redbot-cog"
-
         }
 
         self.config.register_guild(**default_guild)
@@ -155,7 +153,7 @@ class Tgs4(BaseCog):
         Retrieves basic TGS server info.
         """
         try:
-            await r = requests.get(get_url(), headers = get_headers())
+            r = requests.get(get_url(), headers = get_headers())
             await ctx.send(r.text)
         except (ValueError, KeyError, AttributeError):
             await ctx.send("There was an error setting the User-Agent header. Please check your entry and try again!")
