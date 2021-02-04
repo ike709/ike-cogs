@@ -3,7 +3,9 @@
     "install_msg": "WIP",
     "name": "SS13 TGS4 Support",
     "short": "Allows you to control TGS4 via its API.",
-    "requirements": [],
+    "requirements": [
+        "requests>=2.25.1"
+    ],
     "description": "Allows you to control TGS4 via its API.",
     "permissions" : [],
     "tags": [

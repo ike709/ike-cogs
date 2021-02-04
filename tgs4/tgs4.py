@@ -62,6 +62,13 @@ class Tgs4(BaseCog):
         Sets the TGS4 host, defaults to localhost (127.0.0.1)
         """
         try:
+            if tgs_host.startswith("https"):
+                await ctx.send("Error: The host must be HTTP, not HTTPS.")
+                return
+            tgs_host = tgs_host.rstrip("/")
+            if tgs_host[-1].isdigit():
+                await ctx.send("Error: Do not include the port in the host URL.")
+                return
             await self.config.guild(ctx.guild).tgs_host.set(tgs_host)
             await ctx.send(f"TGS host set to: `{tgs_host}`")
         except (ValueError, KeyError, AttributeError):
@@ -77,7 +84,7 @@ class Tgs4(BaseCog):
         try:
             if 1024 <= tgs_port <= 65535: # We don't want to allow reserved ports to be set
                 await self.config.guild(ctx.guild).tgs_port.set(tgs_port)
-                await ctx.send(f"Database port set to: `{tgs_port}`")
+                await ctx.send(f"TGS port set to: `{tgs_port}`")
             else:
                 await ctx.send(f"{tgs_port} is not a valid port! Please check to ensure you're attempting to use a port from 1024 to 65535.")
         except (ValueError, KeyError, AttributeError):
@@ -116,25 +123,25 @@ class Tgs4(BaseCog):
         try:
             await self.config.guild(ctx.guild).tgs_user_agent.set(tgs_user_agent)
             await ctx.send(f"User-Agent set to: `{tgs_user_agent}`")
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was an error setting the User-Agent header. Please check your entry and try again!")
+        except (ValueError, KeyError, AttributeError) as err:
+            await ctx.send("There was an error setting the User-Agent header: {0}".format(err))
     
     async def get_url(self, ctx):
         try:
-            url = self.config.guild(ctx.guild).tgs_host + ":" + str(self.config.guild(ctx.guild).tgs_port)
+            url = await self.config.guild(ctx.guild).tgs_host() + ":{0}".format(await self.config.guild(ctx.guild).tgs_port())
             return url
-        except:
-            await ctx.send("There was an error getting the URL.")
+        except Exception as err:
+            await ctx.send("There was an error getting the URL: {0}".format(err))
 
     async def get_headers(self, ctx):
         try:
             headers = {
-                'User-Agent': self.config.guild(ctx.guild).tgs_user_agent, 
-                'Api': self.config.guild(ctx.guild).tgs_api + '/' + self.config.guild(ctx.guild).tgs_api_version,
+                'User-Agent': await self.config.guild(ctx.guild).tgs_user_agent(), 
+                'Api': await self.config.guild(ctx.guild).tgs_api() + "/" + await self.config.guild(ctx.guild).tgs_api_version(),
                 'Accept': "application/json"}
             return headers
-        except:
-            await ctx.send("There was an error getting the headers.")
+        except Exception as err:
+            ctx.send("There was an error getting the headers: {0}".format(err))
     
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
@@ -143,7 +150,7 @@ class Tgs4(BaseCog):
         Retrieves basic TGS server info.
         """
         try:
-            r = await requests.get(self.get_url(ctx), headers = self.get_headers(ctx))
+            r = requests.get(await self.get_url(ctx), headers = await self.get_headers(ctx))
             await ctx.send(r.text)
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was an error setting the User-Agent header. Please check your entry and try again!")
+        except Exception as err:
+            await ctx.send("There was an error retrieving the TGS info: {0}".format(err))
