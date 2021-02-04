@@ -18,7 +18,7 @@ from redbot.core.utils.chat_formatting import pagify, box, humanize_list, warnin
 from redbot.core.utils.menus import menu, DEFAULT_CONTROLS
 
 #Util Imports
-from .util import key_to_ckey
+#from .util import key_to_ckey
 
 # TODO: Cleanup imports
 
@@ -32,7 +32,7 @@ BaseCog = getattr(commands, "Cog", object)
 class Tgs4(BaseCog):
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier, force_registration=True) # Wtf do I set identifier to?
+        self.config = Config.get_conf(self, 709709709, force_registration=True)
 
         default_guild = {
             "tgs_host": "127.0.0.1",
@@ -46,7 +46,6 @@ class Tgs4(BaseCog):
         self.config.register_guild(**default_guild)
         self.loop = asyncio.get_event_loop()
     
-
     @commands.guild_only()
     @commands.group()
     @checks.admin_or_permissions(administrator=True)
@@ -78,7 +77,7 @@ class Tgs4(BaseCog):
         try:
             if 1024 <= tgs_port <= 65535: # We don't want to allow reserved ports to be set
                 await self.config.guild(ctx.guild).tgs_port.set(tgs_port)
-                await ctx.send(f"Database port set to: `{db_port}`")
+                await ctx.send(f"Database port set to: `{tgs_port}`")
             else:
                 await ctx.send(f"{tgs_port} is not a valid port! Please check to ensure you're attempting to use a port from 1024 to 65535.")
         except (ValueError, KeyError, AttributeError):
@@ -119,18 +118,6 @@ class Tgs4(BaseCog):
             await ctx.send(f"User-Agent set to: `{tgs_user_agent}`")
         except (ValueError, KeyError, AttributeError):
             await ctx.send("There was an error setting the User-Agent header. Please check your entry and try again!")
-
-    @tgs4.command()
-    @checks.is_owner()
-    async def user_agent(self, ctx, tgs_user_agent: str):
-        """
-        Sets the User-Agent header, defaults to tgstation-server-redbot-cog
-        """
-        try:
-            await self.config.guild(ctx.guild).tgs_user_agent.set(tgs_user_agent)
-            await ctx.send(f"User-Agent set to: `{tgs_user_agent}`")
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was an error setting the User-Agent header. Please check your entry and try again!")
     
     async def get_url(self, ctx):
         try:
@@ -141,7 +128,10 @@ class Tgs4(BaseCog):
 
     async def get_headers(self, ctx):
         try:
-            headers = {'User-Agent': self.config.guild(ctx.guild).tgs_user_agent, 'Api': self.config.guild(ctx.guild).tgs_api + '/' + self.config.guild(ctx.guild).tgs_api_version}
+            headers = {
+                'User-Agent': self.config.guild(ctx.guild).tgs_user_agent, 
+                'Api': self.config.guild(ctx.guild).tgs_api + '/' + self.config.guild(ctx.guild).tgs_api_version,
+                'Accept': "application/json"}
             return headers
         except:
             await ctx.send("There was an error getting the headers.")
@@ -153,7 +143,7 @@ class Tgs4(BaseCog):
         Retrieves basic TGS server info.
         """
         try:
-            r = requests.get(get_url(), headers = get_headers())
+            r = await requests.get(self.get_url(ctx), headers = self.get_headers(ctx))
             await ctx.send(r.text)
         except (ValueError, KeyError, AttributeError):
             await ctx.send("There was an error setting the User-Agent header. Please check your entry and try again!")
