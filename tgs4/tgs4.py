@@ -1,13 +1,6 @@
 #Standard Imports
 import asyncio
-import socket
-import ipaddress
-import re
 import logging
-from typing import Union
-import json
-import requests
-import urllib.parse
 import traceback
 
 #Discord Imports
@@ -41,7 +34,7 @@ class Tgs4(BaseCog):
         self.config = Config.get_conf(self, 709709709, force_registration=True)
 
         default_guild = {
-            "tgs_host": "127.0.0.1",
+            "tgs_host": "http://127.0.0.1",
             "tgs_port": 8080,
             "tgs_authenticated": False,
             "tgs_api": "Tgstation.Server.Api",
@@ -68,38 +61,30 @@ class Tgs4(BaseCog):
     @checks.is_owner()
     async def host(self, ctx, tgs_host: str):
         """
-        Sets the TGS4 host, defaults to localhost (127.0.0.1)
+        Sets the TGS4 host, defaults to localhost (http://127.0.0.1:8080)
         """
         try:
             if tgs_host.startswith("https"):
                 await ctx.send("Error: The host must be HTTP, not HTTPS.")
                 return
-            tgs_host = tgs_host.rstrip("/")
-            if tgs_host[-1].isdigit():
-                await ctx.send("Error: Do not include the port in the host URL.")
+            tgs_host = tgs_host.rstrip("/") # No trailing /
+            if tgs_host[1].isdigit(): # They forgot the http:// prefix
+                tgs_host = f"http://{tgs_host}"
+            host_split = tgs_host.split(":")
+            if len(host_split) == 2: # They didn't include a port so just use the existing one
+                port = await self.config.guild(ctx.guild).tgs_port()
+                host_split.append(str(port))
+            elif int(host_split[2]) not in range(1024, 65536): # We don't want to allow reserved ports to be set             
+                await ctx.send(f"Error: {host_split[2]} is not a valid port! Please check to ensure you're attempting to use a port from 1024 to 65535.")
                 return
+            else: # Set the new, valid port
+                await self.config.guild(ctx.guild).tgs_port.set(host_split[2])
+            tgs_host = f"{host_split[0]}:{host_split[1]}"
             await self.config.guild(ctx.guild).tgs_host.set(tgs_host)
             await self.reload_tgs_config(ctx)
-            await ctx.send(f"TGS host set to: `{tgs_host}`")
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was an error setting the TGS4 ip/hostname. Please check your entry and try again!")
-    
-
-    @tgs4.command()
-    @checks.is_owner()
-    async def port(self, ctx, tgs_port: int):
-        """
-        Sets the TGS4 port, defaults to 8080.
-        """
-        try:
-            if 1024 <= tgs_port <= 65535: # We don't want to allow reserved ports to be set
-                await self.config.guild(ctx.guild).tgs_port.set(tgs_port)
-                await self.reload_tgs_config(ctx)
-                await ctx.send(f"TGS port set to: `{tgs_port}`")
-            else:
-                await ctx.send(f"{tgs_port} is not a valid port! Please check to ensure you're attempting to use a port from 1024 to 65535.")
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was a problem setting your port. Please check to ensure you're attempting to use a port from 1024 to 65535.") 
+            await ctx.send(f"TGS host set to: `{await self.get_url(ctx)}`") # Use get_url() so the user sees exactly how the cog interprets the data
+        except:
+            await ctx.send("There was an error setting the TGS4 host URL. Please check your entry and try again!")
     
     @tgs4.command()
     @checks.is_owner()
