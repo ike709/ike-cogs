@@ -23,6 +23,9 @@ import swagger_client
 from swagger_client.rest import ApiException
 from swagger_client.configuration import Configuration
 
+#Util imports
+from .util import parse_ex
+
 # TODO: Cleanup imports
 
 __version__ = "0.0.1"
@@ -126,7 +129,7 @@ class Tgs4(BaseCog):
     
     @tgs4.command()
     @checks.is_owner()
-    async def user_agent(self, ctx, tgs_user_agent: str):
+    async def agent(self, ctx, tgs_user_agent: str):
         """
         Sets the User-Agent header, defaults to tgstation-server-redbot-cog
         """
@@ -165,6 +168,8 @@ class Tgs4(BaseCog):
             if self.api_client is None:
                 self.api_client = swagger_client.ApiClient(await self.get_tgs_config(ctx))
             return self.api_client
+        except ApiException as err:
+            parse_ex(ctx, err)
         except Exception as err:
             await ctx.send("There was an error getting the API client: {0}".format(err))
     
@@ -173,7 +178,7 @@ class Tgs4(BaseCog):
             self.tgs_client = None
             self.api_client = None
             self.api_client = await self.get_api_client(ctx)
-        except (ApiException, Exception) as err:
+        except Exception as err:
             await ctx.send("There was an error reloading the TGS config: {0}".format(err))
     
     @tgs4.command()
@@ -187,6 +192,8 @@ class Tgs4(BaseCog):
             api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
             api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.guild(ctx.guild).tgs_user_agent())
             await ctx.send(api_response)
-        except (ApiException, Exception) as err:
+        except ApiException as err:
+            parse_ex(ctx, err)
+        except Exception as err:
             await ctx.send("There was an error retrieving the TGS info: {0}".format(err))
             #await ctx.send(traceback.print_exc())
