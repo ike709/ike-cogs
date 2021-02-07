@@ -105,27 +105,18 @@ class Tgs4(BaseCog):
     @checks.is_owner()
     async def api(self, ctx, tgs_api: str):
         """
-        Sets the TGS4 API header (minus the version), defaults to Tgstation.Server.Api
+        Sets the TGS4 API header (minus the version), defaults to Tgstation.Server.Api. You typically shouldn't ever need to use this command.
         """
         try:
             await self.config.guild(ctx.guild).tgs_api.set(tgs_api)
+            tgs_api = tgs_api.rstrip("/")
+            if tgs_api[-1].isdigit():
+                await ctx.send("Error: Do not include the version in the API.")
+                return
             await ctx.send(f"TGS API set to: `{tgs_api}`")
             await ctx.send(f"TGS API header: `{await self.get_api_header(ctx)}`")
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was an error setting the API. Please check your entry and try again!")
-    
-    @tgs4.command()
-    @checks.is_owner()
-    async def version(self, ctx):
-        """
-        Retrieves the TGS4 client API version.
-        """
-        try:
-            ver = await self.config.guild(ctx.guild).tgs_api_version()
-            await ctx.send(f"TGS client API version: `{ver}`")
-            await ctx.send(f"TGS API header: `{await self.get_api_header(ctx)}`")
         except Exception as err:
-            await ctx.send("There was an error retrieveing the API version: {0}".format(err))
+            await ctx.send("There was an error setting the API: {0}".format(err))
     
     @tgs4.command()
     @checks.is_owner()
@@ -175,12 +166,26 @@ class Tgs4(BaseCog):
     
     async def reload_tgs_config(self, ctx):
         try:
-            self.tgs_client = None
+            self.tgs_config = None
             self.api_client = None
-            self.api_client = await self.get_api_client(ctx)
+            self.api_client = await self.get_api_client(ctx) # ALso sets tgs_config
         except Exception as err:
             await ctx.send("There was an error reloading the TGS config: {0}".format(err))
     
+    @tgs4.command()
+    @checks.mod_or_permissions(administrator=True)
+    async def config(self, ctx):
+        """
+        Displays basic config info.
+        """
+        try:
+            url = await self.get_url(ctx)
+            api = await self.get_api_header(ctx)
+            agent = await self.config.guild(ctx.guild).tgs_user_agent()
+            await ctx.send("Server URL: `{0}`\nCog API: `{1}`\nUser-Agent: `{2}`".format(url, api, agent))
+        except Exception as err:
+            await ctx.send("There was an error retrieving config info: {0}".format(err))
+
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
     async def info(self, ctx):

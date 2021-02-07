@@ -12,7 +12,7 @@ async def parse_ex(ctx, error: ApiException):
     elif error.status == 406:
         await ctx.send("ERROR 406 (Not Acceptable): No Accept header provided.")
     elif error.status == 408:
-        await ctx.send("ERROR 408 (Request Timeout)")
+        await ctx.send("ERROR 408 (Request Timeout): The cog failed to respond to the server in time.")
     elif error.status == 409:
         await ctx.send("ERROR 409 (Conflict): Documented in the requests that use them.")
     elif error.status == 410:
