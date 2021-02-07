@@ -8,6 +8,7 @@ from typing import Union
 import json
 import requests
 import urllib.parse
+import traceback
 
 #Discord Imports
 import discord
@@ -17,8 +18,10 @@ from redbot.core import commands, checks, Config
 from redbot.core.utils.chat_formatting import pagify, box, humanize_list, warning
 from redbot.core.utils.menus import menu, DEFAULT_CONTROLS
 
-#Util Imports
-#from .util import key_to_ckey
+#API Client
+import swagger_client
+from swagger_client.rest import ApiException
+from swagger_client.configuration import Configuration
 
 # TODO: Cleanup imports
 
@@ -39,13 +42,16 @@ class Tgs4(BaseCog):
             "tgs_port": 8080,
             "tgs_authenticated": False,
             "tgs_api": "Tgstation.Server.Api",
-            "tgs_api_version": "8.2.0",
+            "tgs_api_version": "8.3.0",
             "tgs_user_agent": "tgstation-server-redbot-cog"
         }
 
         self.config.register_guild(**default_guild)
         self.loop = asyncio.get_event_loop()
-    
+
+        self.tgs_config = None
+        self.api_client = None
+
     @commands.guild_only()
     @commands.group()
     @checks.admin_or_permissions(administrator=True)
@@ -70,6 +76,7 @@ class Tgs4(BaseCog):
                 await ctx.send("Error: Do not include the port in the host URL.")
                 return
             await self.config.guild(ctx.guild).tgs_host.set(tgs_host)
+            await self.reload_tgs_config(ctx)
             await ctx.send(f"TGS host set to: `{tgs_host}`")
         except (ValueError, KeyError, AttributeError):
             await ctx.send("There was an error setting the TGS4 ip/hostname. Please check your entry and try again!")
@@ -84,6 +91,7 @@ class Tgs4(BaseCog):
         try:
             if 1024 <= tgs_port <= 65535: # We don't want to allow reserved ports to be set
                 await self.config.guild(ctx.guild).tgs_port.set(tgs_port)
+                await self.reload_tgs_config(ctx)
                 await ctx.send(f"TGS port set to: `{tgs_port}`")
             else:
                 await ctx.send(f"{tgs_port} is not a valid port! Please check to ensure you're attempting to use a port from 1024 to 65535.")
@@ -94,25 +102,27 @@ class Tgs4(BaseCog):
     @checks.is_owner()
     async def api(self, ctx, tgs_api: str):
         """
-        Sets the TGS4 Api header (minus the version), defaults to Tgstation.Server.Api
+        Sets the TGS4 API header (minus the version), defaults to Tgstation.Server.Api
         """
         try:
             await self.config.guild(ctx.guild).tgs_api.set(tgs_api)
             await ctx.send(f"TGS API set to: `{tgs_api}`")
+            await ctx.send(f"TGS API header: `{await self.get_api_header(ctx)}`")
         except (ValueError, KeyError, AttributeError):
             await ctx.send("There was an error setting the API. Please check your entry and try again!")
     
     @tgs4.command()
     @checks.is_owner()
-    async def api_version(self, ctx, tgs_api_version: str):
+    async def version(self, ctx):
         """
-        Sets the TGS4 API version, defaults to 8.2.0
+        Retrieves the TGS4 client API version.
         """
         try:
-            await self.config.guild(ctx.guild).tgs_api_version.set(tgs_api_version)
-            await ctx.send(f"TGS API version set to: `{tgs_api_version}`")
-        except (ValueError, KeyError, AttributeError):
-            await ctx.send("There was an error setting the API version. Please check your entry and try again!")
+            ver = await self.config.guild(ctx.guild).tgs_api_version()
+            await ctx.send(f"TGS client API version: `{ver}`")
+            await ctx.send(f"TGS API header: `{await self.get_api_header(ctx)}`")
+        except Exception as err:
+            await ctx.send("There was an error retrieveing the API version: {0}".format(err))
     
     @tgs4.command()
     @checks.is_owner()
@@ -133,15 +143,38 @@ class Tgs4(BaseCog):
         except Exception as err:
             await ctx.send("There was an error getting the URL: {0}".format(err))
 
-    async def get_headers(self, ctx):
+    async def get_api_header(self, ctx):
         try:
-            headers = {
-                'User-Agent': await self.config.guild(ctx.guild).tgs_user_agent(), 
-                'Api': await self.config.guild(ctx.guild).tgs_api() + "/" + await self.config.guild(ctx.guild).tgs_api_version(),
-                'Accept': "application/json"}
-            return headers
+            header = str(await self.config.guild(ctx.guild).tgs_api()) + "/" + str(await self.config.guild(ctx.guild).tgs_api_version()),
+            header = "".join(header) # For some reason header is a fucking tuple
+            return str(header)
         except Exception as err:
-            ctx.send("There was an error getting the headers: {0}".format(err))
+            await ctx.send("There was an error getting the API header: {0}".format(err))
+    
+    async def get_tgs_config(self, ctx):
+        try:
+            if self.tgs_config is None:
+                self.tgs_config = Configuration()
+                self.tgs_config.host = await self.get_url(ctx)
+            return self.tgs_config
+        except Exception as err:
+            await ctx.send("There was an error getting the TGS config: {0}".format(err))
+    
+    async def get_api_client(self, ctx):
+        try:
+            if self.api_client is None:
+                self.api_client = swagger_client.ApiClient(await self.get_tgs_config(ctx))
+            return self.api_client
+        except Exception as err:
+            await ctx.send("There was an error getting the API client: {0}".format(err))
+    
+    async def reload_tgs_config(self, ctx):
+        try:
+            self.tgs_client = None
+            self.api_client = None
+            self.api_client = await self.get_api_client(ctx)
+        except (ApiException, Exception) as err:
+            await ctx.send("There was an error reloading the TGS config: {0}".format(err))
     
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
@@ -150,7 +183,10 @@ class Tgs4(BaseCog):
         Retrieves basic TGS server info.
         """
         try:
-            r = requests.get(await self.get_url(ctx), headers = await self.get_headers(ctx))
-            await ctx.send(r.text)
-        except Exception as err:
+            #await ctx.send(await self.get_url(ctx))
+            api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
+            api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.guild(ctx.guild).tgs_user_agent())
+            await ctx.send(api_response)
+        except (ApiException, Exception) as err:
             await ctx.send("There was an error retrieving the TGS info: {0}".format(err))
+            #await ctx.send(traceback.print_exc())
