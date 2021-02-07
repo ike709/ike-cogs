@@ -101,7 +101,7 @@ class Tgs4(BaseCog):
             await ctx.send(f"TGS API set to: `{tgs_api}`")
             await ctx.send(f"TGS API header: `{await self.get_api_header(ctx)}`")
         except Exception as err:
-            await ctx.send("There was an error setting the API: {0}".format(err))
+            await ctx.send(f"There was an error setting the API: {err}")
     
     @tgs4.command()
     @checks.is_owner()
@@ -113,14 +113,14 @@ class Tgs4(BaseCog):
             await self.config.guild(ctx.guild).tgs_user_agent.set(tgs_user_agent)
             await ctx.send(f"User-Agent set to: `{tgs_user_agent}`")
         except (ValueError, KeyError, AttributeError) as err:
-            await ctx.send("There was an error setting the User-Agent header: {0}".format(err))
+            await ctx.send(f"There was an error setting the User-Agent header: {err}")
     
     async def get_url(self, ctx):
         try:
-            url = await self.config.guild(ctx.guild).tgs_host() + ":{0}".format(await self.config.guild(ctx.guild).tgs_port())
+            url = f"{await self.config.guild(ctx.guild).tgs_host()}:{await self.config.guild(ctx.guild).tgs_port()}"
             return url
         except Exception as err:
-            await ctx.send("There was an error getting the URL: {0}".format(err))
+            await ctx.send(f"There was an error getting the URL: {err}")
 
     async def get_api_header(self, ctx):
         try:
@@ -128,7 +128,7 @@ class Tgs4(BaseCog):
             header = "".join(header) # For some reason header is a fucking tuple
             return str(header)
         except Exception as err:
-            await ctx.send("There was an error getting the API header: {0}".format(err))
+            await ctx.send(f"There was an error getting the API header: {err}")
     
     async def get_tgs_config(self, ctx):
         try:
@@ -137,7 +137,7 @@ class Tgs4(BaseCog):
                 self.tgs_config.host = await self.get_url(ctx)
             return self.tgs_config
         except Exception as err:
-            await ctx.send("There was an error getting the TGS config: {0}".format(err))
+            await ctx.send(f"There was an error getting the TGS config: {err}")
     
     async def get_api_client(self, ctx):
         try:
@@ -147,7 +147,7 @@ class Tgs4(BaseCog):
         except ApiException as err:
             parse_ex(ctx, err)
         except Exception as err:
-            await ctx.send("There was an error getting the API client: {0}".format(err))
+            await ctx.send(f"There was an error getting the API client: {err}")
     
     async def reload_tgs_config(self, ctx):
         try:
@@ -155,7 +155,7 @@ class Tgs4(BaseCog):
             self.api_client = None
             self.api_client = await self.get_api_client(ctx) # ALso sets tgs_config
         except Exception as err:
-            await ctx.send("There was an error reloading the TGS config: {0}".format(err))
+            await ctx.send(f"There was an error reloading the TGS config: {err}")
     
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
@@ -167,9 +167,9 @@ class Tgs4(BaseCog):
             url = await self.get_url(ctx)
             api = await self.get_api_header(ctx)
             agent = await self.config.guild(ctx.guild).tgs_user_agent()
-            await ctx.send("Server URL: `{0}`\nCog API: `{1}`\nUser-Agent: `{2}`".format(url, api, agent))
+            await ctx.send(f"Server URL: `{url}`\nCog API: `{api}`\nUser-Agent: `{agent}`")
         except Exception as err:
-            await ctx.send("There was an error retrieving config info: {0}".format(err))
+            await ctx.send(f"There was an error retrieving config info: {err}")
 
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
@@ -178,12 +178,11 @@ class Tgs4(BaseCog):
         Retrieves basic TGS server info.
         """
         try:
-            #await ctx.send(await self.get_url(ctx))
             api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
             api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.guild(ctx.guild).tgs_user_agent())
             await ctx.send(api_response)
         except ApiException as err:
             parse_ex(ctx, err)
         except Exception as err:
-            await ctx.send("There was an error retrieving the TGS info: {0}".format(err))
+            await ctx.send(f"There was an error retrieving the TGS info: {err}")
             #await ctx.send(traceback.print_exc())

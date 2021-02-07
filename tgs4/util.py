@@ -2,7 +2,7 @@ from swagger_client.rest import ApiException
 
 async def parse_ex(ctx, error: ApiException):
     if error.status == 400:
-        await ctx.send("ERROR 400 (Bad Request): {0}".format(error))
+        await ctx.send(f"ERROR 400 (Bad Request): {error}")
     elif error.status == 401:
         await ctx.send("ERROR 401 (Unauthorized): Invalid or expired credentials were provided. Try running `tgs4 authenticate`.") #This command does not exist yet
     elif error.status == 403:
@@ -26,10 +26,10 @@ async def parse_ex(ctx, error: ApiException):
     elif error.status == 429:
         await ctx.send("ERROR 429 (Rate Limited): GitHub.com's rate limit has been reached.")
     elif error.status == 500:
-        await ctx.send("ERROR 500 (Server Error): Please report the following error: {0}".format(error))
+        await ctx.send(f"ERROR 500 (Server Error): Please report the following error: {error}")
     elif error.status == 501:
         await ctx.send("ERROR 501 (Not Implemented): Functionality not available in the current server version.")
     elif error.status == 503:
         await ctx.send("ERROR 503 (Service Unavailable): The server is either starting up or shutting down and isn't ready to respond to requests. You can try again soon and a response/lack thereof will indicate which of the two events it was")
     else:
-        await ctx.send("Unknown ApiException error {0}: {1}".format(error.status, error))
+        await ctx.send(f"Unknown ApiException error {error.status}: {error}")
