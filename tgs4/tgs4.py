@@ -241,4 +241,20 @@ class Tgs4(BaseCog):
             await ctx.send(f"TGS password set to: `{password}`.")
         except Exception as err:
             await ctx.send(f"There was an error setting the password: {err}")
-    
+    
+    #TODO: Finish this incredibly WIP method
+    @tgs4.command()
+    @checks.mod_or_permissions(administrator=True)
+    async def authenticate(self, ctx):
+        """
+        Retrieves basic TGS server info.
+        """
+        try:
+            await acknowledge(ctx)
+            api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
+            api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.tgs_user_agent())
+            await ctx.send(api_response)
+        except ApiException as err:
+            await parse_ex(ctx, err)
+        except Exception as err:
+            await ctx.send(f"There was an error retrieving the TGS info: {err}")
