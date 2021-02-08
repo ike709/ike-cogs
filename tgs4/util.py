@@ -1,4 +1,5 @@
 from swagger_client.rest import ApiException
+import discord
 
 async def parse_ex(ctx, error: ApiException):
     if error.status == 400:

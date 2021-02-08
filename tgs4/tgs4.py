@@ -41,9 +41,9 @@ class Tgs4(BaseCog):
             "tgs_api": "Tgstation.Server.Api",
             "tgs_api_version": "8.3.0",
             "tgs_user_agent": "tgstation-server-redbot-cog",
-            "tgs_auth_token": "",
-            "tgs_username": "",
-            "tgs_password": ""
+            "tgs_auth_token": None,
+            "tgs_username": None,
+            "tgs_password": None
         }
 
         self.config.register_global(**default_global)
@@ -60,6 +60,27 @@ class Tgs4(BaseCog):
         SS13 TGS4
         """
         pass
+
+    def requires_token(self, func): # Decorator for methods that require auth
+        async def wrapper(self, ctx, *args, **kwargs):
+            try:
+                token = await self.config.tgs_auth_token()
+                if token is None: # We've never authenticated
+                    await self.authenticate(*args, **kwargs)
+            except Exception as err:
+                await ctx.send("Error: First-time authentication failed: {err}")
+            tries = 0
+            while tries < 3:
+                try:
+                    await func(*args, **kwargs)
+                except ApiException as err:
+                    if err.status == 401:
+                        await self.authenticate(*args, **kwargs)
+                        tries += 1
+                        continue
+                    await parse_ex(*args, **kwargs)
+                break
+        return wrapper
 
     @tgs4.command()
     @checks.is_owner()
@@ -139,6 +160,8 @@ class Tgs4(BaseCog):
             if self.tgs_config is None:
                 self.tgs_config = Configuration()
                 self.tgs_config.host = await self.get_url(ctx)
+                self.tgs_config.username = await self.config.tgs_username()
+                self.tgs_config.password = await self.config.tgs_password()
             return self.tgs_config
         except Exception as err:
             await ctx.send(f"There was an error getting the TGS config: {err}")
@@ -177,6 +200,7 @@ class Tgs4(BaseCog):
 
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
+    @requires_token()
     async def info(self, ctx):
         """
         Retrieves basic TGS server info.
@@ -222,6 +246,7 @@ class Tgs4(BaseCog):
             if guild is None:
                 return await ctx.send("Error: You need to run `tgs4 account` in the discord server first!")
             await self.config.tgs_username.set(username)
+            await self.reload_tgs_config(ctx)
             await ctx.send(f"TGS username set to: `{username}`.")
         except Exception as err:
             await ctx.send(f"There was an error setting the username: {err}")
@@ -238,23 +263,19 @@ class Tgs4(BaseCog):
             if guild is None:
                 return await ctx.send("Error: You need to run `tgs4 account` in the discord server first!")
             await self.config.tgs_password.set(password)
+            await self.reload_tgs_config(ctx)
             await ctx.send(f"TGS password set to: `{password}`.")
         except Exception as err:
             await ctx.send(f"There was an error setting the password: {err}")
     
-    #TODO: Finish this incredibly WIP method
-    @tgs4.command()
-    @checks.mod_or_permissions(administrator=True)
     async def authenticate(self, ctx):
-        """
-        Retrieves basic TGS server info.
-        """
         try:
-            await acknowledge(ctx)
             api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
-            api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.tgs_user_agent())
-            await ctx.send(api_response)
+            token = api_instance.home_controller_create_token(await self.get_api_header(ctx), await self.config.tgs_user_agent())
+            await ctx.send(token.bearer) #Jesus christ remove this from production
         except ApiException as err:
             await parse_ex(ctx, err)
         except Exception as err:
-            await ctx.send(f"There was an error retrieving the TGS info: {err}")
+            await ctx.send(f"There was an error during authentication: {err}")
+
+    
