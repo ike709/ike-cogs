@@ -4,7 +4,7 @@ async def parse_ex(ctx, error: ApiException):
     if error.status == 400:
         await ctx.send(f"ERROR 400 (Bad Request): {error}")
     elif error.status == 401:
-        await ctx.send("ERROR 401 (Unauthorized): Invalid or expired credentials were provided. Try running `tgs4 authenticate`.") #This command does not exist yet
+        await ctx.send("ERROR 401 (Unauthorized): Invalid or expired credentials were provided.") #TODO: Automate re-auth when auth is implemented
     elif error.status == 403:
         await ctx.send("ERROR 403 (Forbidden): You made a request that the authenticated user is not allowed to perform.")
     elif error.status == 404:
@@ -33,3 +33,9 @@ async def parse_ex(ctx, error: ApiException):
         await ctx.send("ERROR 503 (Service Unavailable): The server is either starting up or shutting down and isn't ready to respond to requests. You can try again soon and a response/lack thereof will indicate which of the two events it was")
     else:
         await ctx.send(f"Unknown ApiException error {error.status}: {error}")
+
+async def acknowledge(ctx):
+        try:
+            await ctx.message.add_reaction("✅")
+        except discord.errors.NotFound:
+            pass
