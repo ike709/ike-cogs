@@ -1,5 +1,7 @@
+import swagger_client
 from swagger_client.rest import ApiException
 import discord
+from enum import Enum
 
 async def parse_ex(ctx, error: ApiException):
     if error.status == 400:
@@ -40,3 +42,7 @@ async def acknowledge(ctx):
             await ctx.message.add_reaction("✅")
         except discord.errors.NotFound:
             pass
+
+class Api(Enum):
+    HOME = swagger_client.HomeApi
+

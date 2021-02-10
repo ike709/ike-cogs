@@ -19,6 +19,7 @@ from swagger_client.configuration import Configuration
 #Util imports
 from .util import parse_ex
 from .util import acknowledge
+from .util import Api
 
 # TODO: Cleanup imports
 
@@ -60,27 +61,6 @@ class Tgs4(BaseCog):
         SS13 TGS4
         """
         pass
-
-    def requires_token(self, func): # Decorator for methods that require auth
-        async def wrapper(self, ctx, *args, **kwargs):
-            try:
-                token = await self.config.tgs_auth_token()
-                if token is None: # We've never authenticated
-                    await self.authenticate(*args, **kwargs)
-            except Exception as err:
-                await ctx.send("Error: First-time authentication failed: {err}")
-            tries = 0
-            while tries < 3:
-                try:
-                    await func(*args, **kwargs)
-                except ApiException as err:
-                    if err.status == 401:
-                        await self.authenticate(*args, **kwargs)
-                        tries += 1
-                        continue
-                    await parse_ex(*args, **kwargs)
-                break
-        return wrapper
 
     @tgs4.command()
     @checks.is_owner()
@@ -169,7 +149,7 @@ class Tgs4(BaseCog):
     async def get_api_client(self, ctx):
         try:
             if self.api_client is None:
-                self.api_client = swagger_client.ApiClient(await self.get_tgs_config(ctx))
+                self.api_client = swagger_client.ApiClient(await self.get_tgs_config(ctx), header_name = "Authorization:Bearer", header_value = await self.tgs_auth_token())
             return self.api_client
         except ApiException as err:
             parse_ex(ctx, err)
@@ -200,16 +180,16 @@ class Tgs4(BaseCog):
 
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
-    @requires_token()
     async def info(self, ctx):
         """
         Retrieves basic TGS server info.
         """
         try:
-            await acknowledge(ctx)
-            api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
-            api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.tgs_user_agent())
-            await ctx.send(api_response)
+            #await acknowledge(ctx)
+            #api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
+            #api_response = api_instance.home_controller_home(await self.get_api_header(ctx), await self.config.tgs_user_agent())
+            #await ctx.send(api_response)
+            await ctx.send(await self.call_api(ctx, Api.HOME, home_controller_home))
         except ApiException as err:
             await parse_ex(ctx, err)
         except Exception as err:
@@ -272,10 +252,36 @@ class Tgs4(BaseCog):
         try:
             api_instance = swagger_client.HomeApi(await self.get_api_client(ctx))
             token = api_instance.home_controller_create_token(await self.get_api_header(ctx), await self.config.tgs_user_agent())
-            await ctx.send(token.bearer) #Jesus christ remove this from production
+            await self.config.tgs_auth_token.set(token)
+            await self.reload_tgs_config(ctx)
+            await ctx.send("Successfully authenticated") # TODO: Remove this
         except ApiException as err:
             await parse_ex(ctx, err)
         except Exception as err:
             await ctx.send(f"There was an error during authentication: {err}")
 
-    
+    async def call_api(self, ctx, api, method):
+        # Make sure we have authenticated before.
+        try:
+            token = await self.config.tgs_auth_token()
+            if token is None: # We've never authenticated
+                await self.authenticate(ctx)
+        except Exception as err:
+            await ctx.send(f"Error: First-time authentication failed: {err}")
+        tries = 0
+        
+        while tries < 3: # Why three you ask? Excellent question. /shrug
+            try:
+                await acknowledge(ctx)
+                api_instance = api(await self.get_api_client(ctx))
+                response = api_instance.method(await self.get_api_header(ctx), await self.config.tgs_user_agent())
+                return response
+            except ApiException as err:
+                if err.status == 401:
+                    await self.authenticate(ctx)
+                    tries += 1
+                    continue
+                await parse_ex(ctx, err)
+            except Exception as err:
+                await ctx.send(f"Error: Unable to complete the API call: {err}")
+            break
