@@ -53,6 +53,26 @@ class Tgs4(BaseCog):
         self.tgs_config = None
         self.api_client = None
 
+        # API class instances
+        self.administration_api = None
+        self.byond_api = None
+        self.chat_api = None
+        self.configuration_api = None
+        self.dream_daemon_api = None
+        self.dream_maker_api = None
+        self.instance_api = None
+        self.instance_permission_set_api = None
+        self.job_api = None
+        self.repository_api = None
+        self.transfer_api = None
+        self.user_api = None
+        self.user_group_api = None
+    
+    #async def initialize(self, ctx):
+        #await self.bot.wait_until_red_ready() # Init code goes below here
+        #await self.reload_tgs_config(ctx)
+        #await self.generate_apis()
+
     @commands.guild_only()
     @commands.group()
     @checks.admin_or_permissions(administrator=True)
@@ -160,10 +180,31 @@ class Tgs4(BaseCog):
         try:
             self.tgs_config = None
             self.api_client = None
-            self.api_client = await self.get_api_client(ctx) # ALso sets tgs_config
+            self.api_client = await self.get_api_client(ctx) # Also sets tgs_config
+            await self.reload_api_instances(self, ctx)
         except Exception as err:
             await ctx.send(f"There was an error reloading the TGS config: {err}")
     
+    async def reload_api_instances(self, ctx):
+        try:
+            client = await self.get_api_client(ctx)
+            self.administration_api = swagger_client.AdministrationApi(client)
+            self.byond_api = swagger_client.ByondApi(client)
+            self.chat_api = swagger_client.ChatApi(client)
+            self.configuration_api = swagger_client.ConfigurationApi(client)
+            self.dream_daemon_api = swagger_client.DreamDaemonApi(client)
+            self.dream_maker_api = swagger_client.DreamMakerApi(client)
+            self.home_api = swagger_client.HomeApi(client)
+            self.instance_api = swagger_client.InstanceApi(client)
+            self.instance_permission_set_api = swagger_client.InstancePermissionSetApi(client)
+            self.job_api = swagger_client.JobApi(client)
+            self.repository_api = swagger_client.RepositoryApi(client)
+            self.transfer_api = swagger_client.TransferApi(client)
+            self.user_api = swagger_client.UserApi(client)
+            self.user_group_api = swagger_client.UserGroupApi(client)
+        except Exception as err:
+            await ctx.send(f"There was an error instantiating the APIs: {err}")
+
     @tgs4.command()
     @checks.mod_or_permissions(administrator=True)
     async def config(self, ctx):
